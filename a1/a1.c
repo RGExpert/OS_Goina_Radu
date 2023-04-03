@@ -13,25 +13,25 @@
 typedef struct _SECTION_HEADER
 {
     char name[17];
-    int type;
-    int offset;
-    int size;
+    unsigned int type;
+    unsigned int offset;
+    unsigned int size;
 }SECTION_HEADER;
 
 typedef struct _HEADER
 {
    unsigned char version;
-   char no_sections;
+   unsigned char no_sections;
    SECTION_HEADER *section_headers;
-   short size;
-   char magic[4];
+   unsigned short size;
+   char magic[5];
 }HEADER;
 
 HEADER read_header(int fd,struct stat metadata){
     
     HEADER header;
     unsigned char size[2];
-    int offset=metadata.st_size-(sizeof(header.size)+sizeof(header.magic));
+    int offset=metadata.st_size-(sizeof(header.size)+(sizeof(header.magic)-1));
     
     lseek(fd,offset,SEEK_SET);
     read(fd,size,sizeof(header.size));
@@ -59,14 +59,15 @@ HEADER read_header(int fd,struct stat metadata){
     }
 
     read(fd,&header.size,sizeof(header.size));
-    read(fd,&header.magic,sizeof(header.magic));
+    read(fd,&header.magic,sizeof(header.magic)-1);
+    header.magic[4]=0;
 
     return header;
 }
 
 int* test_header(HEADER header){
-    int *error_flags=malloc(5);
-    memset(error_flags,0,5);
+    int *error_flags=malloc(sizeof(int)*5);
+    memset(error_flags,FALSE,5);
 
     if(strcmp(header.magic,"TNnf")!=0){
         error_flags[0]=TRUE;
@@ -103,8 +104,8 @@ int parse(char* path){
 
     int fd=open(path,O_RDONLY);
     if(fd==-1){
-        perror("ERROR\nCould not open file\n");
-        exit(1);
+        printf("ERROR\nCould not open file\n");
+        return -1;
     }
 
     struct stat metadata;
@@ -121,7 +122,7 @@ int parse(char* path){
             printf("section%d: %s %d %d\n",i+1,header.section_headers[i].name,header.section_headers[i].type,header.section_headers[i].size);
         }
     }
-    else{
+    else if(error_flags[0]==TRUE){
         printf("ERROR\nwrong ");
         if(error_flags[1])
             printf("magic");
@@ -135,6 +136,7 @@ int parse(char* path){
     }
 
     free(header.section_headers);
+    free(error_flags);
     return 0;
 }
 
@@ -220,6 +222,7 @@ int extract(char* path,int section_no,int line_no){
     }
 
     printf("SUCCESS\n%s\n",line);
+    free(header.section_headers);
     free(line);
     close(fd);
     return 1;
@@ -236,11 +239,13 @@ int ends_with(char* str,char* src_string){
 }
 
 
-int list(int recursive,int perm_write,char* src_string,char* path){
+int list(int recursive,int perm_write,char* src_string,char* path,int first_rec){
     
     DIR* dir=opendir(path);
 
     if(dir==NULL){
+        if(first_rec)
+            printf("ERROR\ninvalid directory\n");
         return -1;
     }
 
@@ -249,16 +254,16 @@ int list(int recursive,int perm_write,char* src_string,char* path){
     struct dirent *entry;
     struct stat inode;
     
+    if(first_rec){
+        printf("SUCCESS\n");
+        first_rec=FALSE;
+    }
 
     while((entry=readdir(dir))){
         snprintf(name,sizeof(name),"%s/%s",path,entry->d_name);
         if(strcmp(entry->d_name,".")!=0 && strcmp(entry->d_name,"..")!=0){
             stat(name,&inode);
             if(S_ISDIR(inode.st_mode)){
-                
-                if(recursive){
-                    list(recursive,perm_write,src_string,name);
-                }
                 if((perm_write==1 && (S_IWUSR & inode.st_mode)) || perm_write==0){
 
                     if(src_string==NULL || (src_string!=NULL && ends_with(name,src_string))){
@@ -276,6 +281,22 @@ int list(int recursive,int perm_write,char* src_string,char* path){
             }
         }
     }
+
+    rewinddir(dir);
+     while((entry=readdir(dir))){
+        snprintf(name,sizeof(name),"%s/%s",path,entry->d_name);
+        if(strcmp(entry->d_name,".")!=0 && strcmp(entry->d_name,"..")!=0){
+            stat(name,&inode);
+            if(S_ISDIR(inode.st_mode)){
+                if(recursive){
+                    list(recursive,perm_write,src_string,name,FALSE);
+                }
+
+            }
+        }
+    }
+
+
     closedir(dir);
     return 0;
 }
@@ -325,9 +346,11 @@ int findall(char* path,int first_rec){
                 }
                 close(fd);
                 free(error_flags);
+                free(header.section_headers);
             }
         }
     }
+    
     rewinddir(dir);
     while((entry=readdir(dir))){
         snprintf(name,sizeof(name),"%s/%s",path,entry->d_name);
@@ -351,7 +374,7 @@ int main(int argc, char **argv){
             
             int recursive=FALSE;
             int perm_write=FALSE;
-            char src_string[20];
+            char *src_string=NULL;
             char path[200];
             for(int i=2;i<argc;i++){
                 if(strcmp(argv[i],"recursive")==0)
@@ -360,6 +383,7 @@ int main(int argc, char **argv){
                     perm_write=TRUE;
                 }
                 else if(strncmp(argv[i],"name_ends_with=",15)==0){
+                    src_string=malloc(50);
                     strcpy(src_string,argv[i]+15);
                 }
                 else if(strncmp(argv[i],"path=",5)==0){
@@ -371,8 +395,8 @@ int main(int argc, char **argv){
                 }
                 
             }
-                printf("SUCCESS\n");
-                list(recursive,perm_write,src_string,path);
+                list(recursive,perm_write,src_string,path,TRUE);
+                free(src_string);
         }
         else if(strcmp(argv[1], "parse") == 0){
             char path[300];
