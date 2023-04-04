@@ -428,6 +428,7 @@ int main(int argc, char **argv){
             strcpy(path,argv[2]+5);
             findall(path,TRUE);
         }
+        else printf("ERROR\ninvalid command\n");
     }
     return 0;
 }
