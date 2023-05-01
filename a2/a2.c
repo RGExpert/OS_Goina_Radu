@@ -6,15 +6,15 @@
 #include <sys/wait.h>
 #include <semaphore.h>
 #include "a2_helper.h"
+#include <fcntl.h>
 #include <pthread.h>
 
 sem_t  P4_3,P4_1;
 
-sem_t P6,P6_dn;
+sem_t P6,P6_main,P6_t11;
 pthread_cond_t cond6=PTHREAD_COND_INITIALIZER;
 pthread_cond_t cond6_atleast6_threads=PTHREAD_COND_INITIALIZER;
 pthread_mutex_t mutex6=PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t mutex6_crit=PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex6_threads=PTHREAD_MUTEX_INITIALIZER;
 pthread_barrier_t barrier;
 
@@ -23,9 +23,12 @@ int flag=0;
 int th11_in_execution=0;
 int th11_was_executed=0;
 
-void *P4_th_function(void* args){
-    int i=*((int*)args);
+sem_t *P7_44,*P7_75;
 
+
+void *P4_th_function(void* args){
+    int i=*(int*)args;
+    
     if(i==3){
         info(BEGIN,4,i);
         sem_post(&P4_1);
@@ -33,72 +36,113 @@ void *P4_th_function(void* args){
         info(END,4,i);
     }
     else if(i==1){
+        
         sem_wait(&P4_1);
         info(BEGIN,4,i);
         info(END,4,i);
         sem_post(&P4_3);
      
-    }else{
+    }
+    else if(i==4){
+        P7_44=sem_open("/sem44",0);
+        printf("Waiting\n");
+        sem_wait(P7_44);
+        info(BEGIN,4,i);
+        info(END,4,i);
+        sem_close(P7_44);
+        
+        sem_post(P7_75);
+    }
+    else{
         info(BEGIN,4,i);
         info(END,4,i);
     }
     return NULL;
 }
 
+void* P7_th_function(void* args){
+    
+    int id=*((int*)args);
+    
+    if(id==4){
+        P7_75=sem_open("/sem75",0);
+        sem_wait(P7_75);
+        sem_close(P7_75);
+    }
+    info(BEGIN,7,id);
+    
+    info(END,7,id);
+    if(id==5){
+        P7_44=sem_open("/sem44",0);
+        printf("Send message\n");
+        sem_post(P7_44);
+        sem_close(P7_44);
+    }
+    return NULL;
+}
+
 void* P6_th_function(void* args){
+    
     int id=*((int*)args);
     
     sem_wait(&P6);
     info(BEGIN,6,id);
     
-    //pthread_mutex_lock(&mutex6);
+    pthread_mutex_lock(&mutex6);
     threads_active++;
-    //pthread_mutex_unlock(&mutex6);
 
     if(id==11){
         th11_in_execution=1;
-        printf("\nthreads active:%d\n\n",threads_active);
     }
 
-    if(threads_active==6){
-        if(!th11_in_execution){
+    pthread_mutex_unlock(&mutex6);
+
+     if(threads_active==6){
+        if(!th11_in_execution){ // free up two thread from the while
+            pthread_cond_signal(&cond6_atleast6_threads);
             pthread_cond_signal(&cond6_atleast6_threads);
             //printf("Signal\n");
         }
-        else{
+        else{                   //free up all the thread from the while
             pthread_cond_broadcast(&cond6_atleast6_threads);
             //printf("Brodcast\n");
         }
     }
 
     pthread_mutex_lock(&mutex6_threads);
-    while(!th11_in_execution){
+    while(!th11_was_executed && id!=11){
+        //printf("Thread %d entering loop\n",id);
         pthread_cond_wait(&cond6_atleast6_threads,&mutex6_threads);
+        //printf("Thread %d exiting loop\n",id);
         break;
     }
     pthread_mutex_unlock(&mutex6_threads);
-
-    if(id==11)
-        printf("\nHello\n");
-    if(id!=11 && th11_in_execution){
-        sem_wait(&P6_dn);
-        sem_post(&P6_dn);
-        pthread_cond_broadcast(&cond6_atleast6_threads);
+    
+    
+    if(id!=11 && th11_in_execution==1){
+        sem_post(&P6_t11);  //tell the 11 thread 
+                            //that there are 5 threads beside him in execution
+        
+        sem_wait(&P6_main);   //wait for the 11 thread to finish
+        sem_post(&P6_main);
+        
     }
+    
+    if(th11_was_executed)   //clear the while 
+        pthread_cond_broadcast(&cond6_atleast6_threads);
+    
 
-    //pthread_mutex_lock(&mutex6);
-    threads_active--;
-    //pthread_mutex_unlock(&mutex6);
-    
-    
-    info(END,6,id);
-    
     if(id==11){
+        sem_wait(&P6_t11);  //wait for 5 threads(beside him) to be in execution
         th11_was_executed=1;
+        //printf("\nthreads active:%d\n\n",threads_active);
         pthread_cond_broadcast(&cond6_atleast6_threads);
-        sem_post(&P6_dn);
     }
 
+    threads_active--;
+    info(END,6,id);
+    if(id==11)
+        sem_post(&P6_main); //allow the other threads beside th 11 to execute
     sem_post(&P6);
     return NULL;
 }
@@ -108,8 +152,9 @@ int main(){
 
     int pid2,pid3,pid4,pid5,pid6,pid7;
     info(BEGIN, 1, 0);
-
     pid2=fork();
+    P7_44=sem_open("/sem44",O_CREAT,0666,0);
+    P7_75=sem_open("/sem75",O_CREAT,0666,0);
     if(pid2==0){    //process 2    
         
         info(BEGIN,2,0);
@@ -140,8 +185,9 @@ int main(){
                     info(BEGIN,6,0);
                     // THREADS BARRIER
                     sem_init(&P6,0,6);
-                    sem_init(&P6_dn,0,0);
-                    pthread_barrier_init(&barrier,NULL,5);
+                    sem_init(&P6_main,0,0);
+                    sem_init(&P6_t11,0,0);
+
                     pthread_t P6_threads[39];
                     int args[39];
                     for(int i=0;i<39;i++){
@@ -165,6 +211,7 @@ int main(){
             //SYNCHRONIZING THREADS FORM THE SAME PROCESS
             sem_init(&P4_3,0,0);
             sem_init(&P4_1,0,0);
+            
             pthread_t P4_threads[5];
             int P4_args[5];
             for(int i=0;i<5;i++){
@@ -184,14 +231,29 @@ int main(){
             pid7=fork();
             if(pid7==0){ //process 7
                 info(BEGIN,7,0);
+                // SYNCHRONIZING THREADS FROM DIFFERENT PROCESSES
+                pthread_t P7_threads[6];
+                //P7_44=sem_open("/sem44",0);
+                int P7_args[5];
+                for(int i=0;i<6;i++){
+                    P7_args[i]=i+1;
+                    pthread_create(&P7_threads[i],NULL,P7_th_function,&P7_args[i]);
+                }
+                for(int i=0;i<6;i++){
+                    pthread_join(P7_threads[i],NULL);
+                }
+                /////////////////////////////////////////////////
+        
                 info(END,7,0);
                 exit(0);
             }
-            wait(NULL);
+        //w
         }
-        wait(NULL);
+        //w
     }   
-     wait(NULL);
+    wait(NULL);
+    wait(NULL);
+    wait(NULL);
     info(END, 1, 0);
     return 0;
 }
