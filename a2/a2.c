@@ -98,7 +98,8 @@ void* P6_th_function(void* args){
     pthread_mutex_unlock(&mutex6);
 
      if(threads_active==6){
-        if(!th11_in_execution){ // free up two thread from the while
+        if(!th11_in_execution){ // free up three threads from the while
+            pthread_cond_signal(&cond6_atleast6_threads);
             pthread_cond_signal(&cond6_atleast6_threads);
             pthread_cond_signal(&cond6_atleast6_threads);
             //printf("Signal\n");
