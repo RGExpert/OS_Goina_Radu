@@ -1,4 +1,3 @@
-#define _XOPEN_SOURCE 600 //barriers
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -16,7 +15,6 @@ pthread_cond_t cond6=PTHREAD_COND_INITIALIZER;
 pthread_cond_t cond6_atleast6_threads=PTHREAD_COND_INITIALIZER;
 pthread_mutex_t mutex6=PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex6_threads=PTHREAD_MUTEX_INITIALIZER;
-pthread_barrier_t barrier;
 
 int threads_active=0;
 int flag=0;
@@ -95,55 +93,48 @@ void* P6_th_function(void* args){
         th11_in_execution=1;
     }
 
-    pthread_mutex_unlock(&mutex6);
-
      if(threads_active==6){
-        if(!th11_in_execution){ // free up three threads from the while
+        if(!th11_in_execution){ 
             pthread_cond_signal(&cond6_atleast6_threads);
             pthread_cond_signal(&cond6_atleast6_threads);
             pthread_cond_signal(&cond6_atleast6_threads);
-            //printf("Signal\n");
         }
-        else{                   //free up all the thread from the while
+        else{                  
             pthread_cond_broadcast(&cond6_atleast6_threads);
-            //printf("Brodcast\n");
         }
     }
+    pthread_mutex_unlock(&mutex6);
 
     pthread_mutex_lock(&mutex6_threads);
-    while(!th11_was_executed && id!=11){
-        //printf("Thread %d entering loop\n",id);
+    if(!th11_was_executed && id!=11){
         pthread_cond_wait(&cond6_atleast6_threads,&mutex6_threads);
-        //printf("Thread %d exiting loop\n",id);
-        break;
     }
     pthread_mutex_unlock(&mutex6_threads);
     
     
     if(id!=11 && th11_in_execution==1){
-        sem_post(&P6_t11);  //tell the 11 thread 
-                            //that there are 5 threads beside him in execution
+        sem_post(&P6_t11);  
         
-        sem_wait(&P6_main);   //wait for the 11 thread to finish
+        sem_wait(&P6_main); 
         sem_post(&P6_main);
         
     }
     
-    if(th11_was_executed)   //clear the while 
-        pthread_cond_broadcast(&cond6_atleast6_threads);
-    
-
     if(id==11){
-        sem_wait(&P6_t11);  //wait for 5 threads(beside him) to be in execution
+        sem_wait(&P6_t11); 
         th11_was_executed=1;
-        //printf("\nthreads active:%d\n\n",threads_active);
         pthread_cond_broadcast(&cond6_atleast6_threads);
     }
 
+    pthread_mutex_lock(&mutex6);
     threads_active--;
+    pthread_mutex_unlock(&mutex6);
+    
     info(END,6,id);
+    
     if(id==11)
-        sem_post(&P6_main); //allow the other threads beside th 11 to execute
+        sem_post(&P6_main); 
+    
     sem_post(&P6);
     return NULL;
 }
@@ -184,7 +175,7 @@ int main(){
                 pid6=fork();
                 if(pid6==0){ //process 6
                     info(BEGIN,6,0);
-                    // THREADS BARRIER
+        
                     sem_init(&P6,0,6);
                     sem_init(&P6_main,0,0);
                     sem_init(&P6_t11,0,0);
@@ -198,10 +189,12 @@ int main(){
 
                     for(int i=0;i<39;i++)
                         pthread_join(P6_threads[i],NULL);
-                    ////////////////// 
 
                     info(END,6,0);
                     exit(0);
+                    sem_destroy(&P6);
+                    sem_destroy(&P6_main);
+                    sem_destroy(&P6_t11);
                 }
                 wait(NULL);
                 info(END,5,0);
@@ -209,7 +202,6 @@ int main(){
             }
             wait(NULL);
 
-            //SYNCHRONIZING THREADS FORM THE SAME PROCESS
             sem_init(&P4_3,0,0);
             sem_init(&P4_1,0,0);
             
@@ -223,7 +215,8 @@ int main(){
             for(int i=0;i<5;i++){
                 pthread_join(P4_threads[i],NULL);
             }
-            ////////////////////////////////////////////
+            sem_destroy(&P4_3);
+            sem_destroy(&P4_1);
 
             info(END,4,0);
             exit(0);
@@ -232,9 +225,7 @@ int main(){
             pid7=fork();
             if(pid7==0){ //process 7
                 info(BEGIN,7,0);
-                // SYNCHRONIZING THREADS FROM DIFFERENT PROCESSES
                 pthread_t P7_threads[6];
-                //P7_44=sem_open("/sem44",0);
                 int P7_args[5];
                 for(int i=0;i<6;i++){
                     P7_args[i]=i+1;
@@ -243,18 +234,17 @@ int main(){
                 for(int i=0;i<6;i++){
                     pthread_join(P7_threads[i],NULL);
                 }
-                /////////////////////////////////////////////////
         
                 info(END,7,0);
                 exit(0);
             }
-        //w
         }
-        //w
     }   
     wait(NULL);
     wait(NULL);
     wait(NULL);
+    sem_unlink("/sem44");
+    sem_unlink("/sem75");
     info(END, 1, 0);
     return 0;
 }
