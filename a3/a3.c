@@ -305,8 +305,6 @@ void handle_logical_space(int req,int resp){
     
     int start_memory_address=offset/5120;
     int offset_in_memory_address=offset%5120;
-    printf("Start memory address: %d\n offset_in_memory:%d\n",start_memory_address,offset_in_memory_address);
-    printf("No bytes: %d\n",no_bytes);
     struct stat stats;
     fstat(file_fd,&stats);
 
@@ -317,7 +315,7 @@ void handle_logical_space(int req,int resp){
     for(int i=0;i<header.no_sections;i++){
 
         next_block=((header.section_headers[i].size)/5120 + 1 + curr_block);
-        printf("Section %d curr_block:%d next block:%d  offset:%d\n",i,curr_block,next_block,header.section_headers[i].offset);
+        
         if(start_memory_address>=curr_block && start_memory_address<next_block){
             memcpy(shm_pointer,file_pointer + header.section_headers[i].offset+offset_in_memory_address,no_bytes);
             write(resp,&ret_msg,31);

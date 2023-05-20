@@ -14,42 +14,6 @@ HEADER OFFSET AT 400: 58837
 HEADER NO SECTIONS:14
 HEADER OFFSET AT 2338: 7730
 SUCCESS
-Start memory address: 2
- offset_in_memory:290
-No bytes: 576
-Section 0 curr_block:0 next block:1  offset:0
-Section 1 curr_block:1 next block:2  offset:3545
-Section 2 curr_block:2 next block:3  offset:5917
-Start memory address: 5
- offset_in_memory:2430
-No bytes: 1897
-Section 0 curr_block:0 next block:1  offset:0
-Section 1 curr_block:1 next block:2  offset:3545
-Section 2 curr_block:2 next block:3  offset:5917
-Section 3 curr_block:3 next block:5  offset:9249
-Section 4 curr_block:5 next block:7  offset:15613
-Start memory address: 7
- offset_in_memory:1064
-No bytes: 697
-Section 0 curr_block:0 next block:1  offset:0
-Section 1 curr_block:1 next block:2  offset:3545
-Section 2 curr_block:2 next block:3  offset:5917
-Section 3 curr_block:3 next block:5  offset:9249
-Section 4 curr_block:5 next block:7  offset:15613
-Section 5 curr_block:7 next block:8  offset:24475
-Start memory address: 13
- offset_in_memory:248
-No bytes: 247
-Section 0 curr_block:0 next block:1  offset:0
-Section 1 curr_block:1 next block:2  offset:3545
-Section 2 curr_block:2 next block:3  offset:5917
-Section 3 curr_block:3 next block:5  offset:9249
-Section 4 curr_block:5 next block:7  offset:15613
-Section 5 curr_block:7 next block:8  offset:24475
-Section 6 curr_block:8 next block:9  offset:27119
-Section 7 curr_block:9 next block:11  offset:29609
-Section 8 curr_block:11 next block:13  offset:35130
-Section 9 curr_block:13 next block:14  offset:40950
 [1;35mTesting ping...[0m
 [TESTER] received string 'HELLO'
 [TESTER] sending string 'PING'
