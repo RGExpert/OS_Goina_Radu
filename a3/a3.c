@@ -267,7 +267,7 @@ void handle_file_section(int req,int resp){
     fstat(file_fd,&stats);
 
     HEADER header=read_header(file_fd,stats);
-    printf("HEADER NO SECTIONS:%d\nHEADER OFFSET AT %d: %d\n",header.no_sections,offset,header.section_headers[section_no-1].offset);
+   
     if(section_no>header.no_sections ||
         offset+no_bytes > header.section_headers[section_no-1].offset +
         header.section_headers[section_no-1].size){
