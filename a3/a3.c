@@ -278,10 +278,6 @@ void handle_file_section(int req,int resp){
     
     memcpy(shm_pointer,file_pointer + header.section_headers[section_no-1].offset+offset,no_bytes);
     
-    // for (int i = 0; i < header.no_sections; i++){
-    //     free(header.section_headers);
-    // }
-    
     write(resp,&ret_msg,23);
     write(resp,&success,8);
 }
